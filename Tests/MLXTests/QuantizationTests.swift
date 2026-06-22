@@ -50,7 +50,7 @@ class QuantizationTests: XCTestCase {
         for bits in [1, 2] {
             for gs in [32, 64, 128] {
                 MLXRandom.seed(42)
-                // Symmetric binary weights {-0.3, +0.3} round-trip through affine 1/2-bit.
+                // Symmetric binary weights {-0.3, +0.3}.
                 let signs = (MLXRandom.uniform(low: 0, high: 1, [128, gs * 2]) .> 0.5)
                 let w = `where`(signs, Float(0.3), Float(-0.3))
 
@@ -60,15 +60,22 @@ class QuantizationTests: XCTestCase {
                     wq, scales: scales, biases: biases, groupSize: gs, bits: bits)
                 eval(wHat)
 
-                // Every dequantized value must land on a level reachable by the affine grid:
-                // for bits=1 that is exactly {bias, bias+scale}; the round-trip of an already
-                // on-grid weight must be near-exact.
-                let maxErr = abs(w - wHat).max().item(Float.self)
-                XCTAssertLessThan(
-                    maxErr, 1e-4,
-                    "\(bits)-bit g\(gs) reconstruction error \(maxErr) too large")
+                if bits == 1 {
+                    // 1-bit affine packs exactly two levels {bias, bias+scale} = the two
+                    // distinct weight values, so a binary weight round-trips near-exactly.
+                    // This is the property PrismML's 1-bit path adds.
+                    let maxErr = abs(w - wHat).max().item(Float.self)
+                    XCTAssertLessThan(
+                        maxErr, 1e-4,
+                        "1-bit g\(gs) reconstruction error \(maxErr) too large")
+                }
+                // NOTE: a binary weight does NOT round-trip exactly at bits>=2 — this is stock
+                // MLX affine behavior, not a PrismML change. The bits>=2 affine quantize code is
+                // unchanged by the patch (only wrapped in an `else`); its grid is asymmetric
+                // (e.g. {-0.3,+0.3} g* -> scale=-0.15, bias=0.3, grid {0.3,0.15,0,-0.15}, so
+                // -0.3 maps to -0.15). Exactness for bits>=2 is covered by testBitExactRegression.
 
-                // quantizedMatmul(bits:) must match dequantize-then-matmul.
+                // quantizedMatmul(bits:) must match dequantize-then-matmul for both bit widths.
                 let x = MLXRandom.normal([4, gs * 2])
                 let yq = quantizedMatmul(
                     x, wq, scales: scales, biases: biases,
