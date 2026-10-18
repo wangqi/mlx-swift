@@ -1,6 +1,9 @@
+# Self-managed fork carrying the PrismML 1-bit/2-bit affine quantization patch
+# (branch prism-1bit-0.32.2, off mlx-core base 1f8e74e / MLX v0.32.2).
+# wangqi modified 2026-06-22 / 2026-10-17
 [submodule "submodules/mlx"]
 	path = Source/Cmlx/mlx
-	url = https://github.com/ml-explore/mlx
+	url = https://github.com/wangqi/mlx
 [submodule "submodules/mlx-c"]
 	path = Source/Cmlx/mlx-c
 	url = https://github.com/ml-explore/mlx-c
